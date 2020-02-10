@@ -2,6 +2,8 @@
 const fs = require("fs");
 const path = require("path");
 const ora = require("ora");
+const tar = require("tar-fs");
+const Client = require("ftp");
 const chalk = require("chalk");
 const express = require("express");
 const copydir = require("copy-dir");
@@ -44,9 +46,9 @@ program
           spinner.succeed();
           process.chdir(name);
 
-          console.log(symbols.info, chalk.white(`开始安装依赖组件...`));
+          console.log(symbols.info, chalk.white(`开始安装依赖部件...`));
           child_process.execSync("npm install", { stdio: "inherit" });
-          console.log(symbols.info, chalk.white(`完成安装依赖组件...`));
+          console.log(symbols.info, chalk.white(`完成安装依赖部件...`));
 
           console.log(symbols.info, chalk.white(`初始化一个Widget`));
           inquirer
@@ -216,6 +218,34 @@ program
 
 program
   .command("build")
+  .description("构建一个Widget")
+  .action(() => {
+    inquirer
+      .prompt([
+        {
+          name: "id",
+          message: "请输入要构建的Widget的标识"
+        }
+      ])
+      .then(answers => {
+        try {
+          const widgetId = answers.id;
+          const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+          if (fs.existsSync(widgetManifestPath)) {
+            child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
+              stdio: "inherit"
+            });
+          } else {
+            console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
+          }
+        } catch (error) {
+          console.log(symbols.error, chalk.red(error));
+        }
+      });
+  });
+
+program
+  .command("publish")
   .description("发布一个Widget")
   .action(() => {
     inquirer
@@ -228,10 +258,42 @@ program
       .then(answers => {
         try {
           const widgetId = answers.id;
-          const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+          const widgetPath = `src/widgets/${widgetId}`;
+          const widgetManifestPath = `${widgetPath}/manifest.json`;
+          const timeId = new Date()
+            .toISOString()
+            .replace(/T/, "")
+            .replace(/\..+/, "")
+            .replace(/-/g, "")
+            .replace(/:/g, "");
+          const widgetTicket = `${widgetId}${timeId}`;
+          const widgetTar = `${widgetTicket}.tar`;
           if (fs.existsSync(widgetManifestPath)) {
-            child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
-              stdio: "inherit"
+            //压缩Widget目录
+            tar.pack(widgetPath).pipe(fs.createWriteStream(widgetTar));
+            //连接FTP服务器
+            connectFtp(function(ftp) {
+              const spinner = ora("部件正在发布中...");
+              spinner.start();
+              const uploadfile = fs.createReadStream(widgetTar);
+              const fileSize = fs.statSync(widgetTar).size;
+              ftp.put(uploadfile, widgetTar, function(err) {
+                if (err) {
+                  spinner.fail();
+                  console.log(symbols.error, chalk.red(err));
+                  throw err;
+                }
+                ftp.end();
+                spinner.succeed("部件正在发布中...");
+                console.log(symbols.info, chalk.white(`部件已成功发布...`));
+                console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
+              });
+              let uploadedSize = 0;
+              uploadfile.on("data", function(buffer) {
+                uploadedSize += buffer.length;
+                spinner.text =
+                  "部件正在发布中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
+              });
             });
           } else {
             console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
@@ -308,8 +370,8 @@ function createWidget(id, name, description, author) {
 
 /**
  * 启动代理服务
- * @param {*} url 
- * @param {*} callback 
+ * @param {*} url
+ * @param {*} callback
  */
 function startProxyServer(url, callback) {
   console.log(symbols.info, chalk.blue(`正在启动代理服务...`));
@@ -331,4 +393,26 @@ function startProxyServer(url, callback) {
       callback();
     }
   });
+}
+
+/**
+ * 连接服务器地址
+ * @param {*} callback
+ */
+function connectFtp(callback) {
+  const ftp = new Client();
+  const spinner = ora("开始建立服务器连接...");
+  spinner.start();
+  ftp.on("ready", function() {
+    spinner.succeed();
+    console.log(symbols.info, chalk.white(`服务器连接已建立...`));
+    if (callback) {
+      callback(ftp);
+    }
+  });
+  ftp.on("error", function(err) {
+    spinner.fail();
+    console.log(symbols.error, chalk.red(err));
+  });
+  ftp.connect({ host: "173.242.120.250", user: "datacolour", password: "datacolour" });
 }
