@@ -1,0 +1,5 @@
+.git
+.npmrc
+.jshintrc
+npm-debug.log
+index.src.js
