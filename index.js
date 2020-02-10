@@ -1,19 +1,28 @@
 #!/usr/bin/env node
 const fs = require("fs");
+const path = require("path");
 const ora = require("ora");
 const chalk = require("chalk");
+const express = require("express");
 const copydir = require("copy-dir");
 const program = require("commander");
 const inquirer = require("inquirer");
 const symbols = require("log-symbols");
 const handlebars = require("handlebars");
+const proxy = require("http-proxy-middleware");
 const download = require("download-git-repo");
 const child_process = require("child_process");
 
-const version = "1.0.0";
 const githublink = "FreezeSoul/DataColourWidgetTemplate#master";
 
-program.version(version, "-v, --version");
+try {
+  const packagePath = path.resolve(__dirname, "package.json");
+  if (fs.existsSync(packagePath)) {
+    const pjson = require(packagePath);
+    const version = pjson.version;
+    program.version(version, "-v, --version");
+  }
+} catch (error) {}
 
 program
   .command("init <name>")
@@ -34,6 +43,10 @@ program
         } else {
           spinner.succeed();
           process.chdir(name);
+
+          console.log(symbols.info, chalk.white(`开始安装依赖组件...`));
+          child_process.execSync("npm install", { stdio: "inherit" });
+          console.log(symbols.info, chalk.white(`完成安装依赖组件...`));
 
           console.log(symbols.info, chalk.white(`初始化一个Widget`));
           inquirer
@@ -56,15 +69,19 @@ program
               }
             ])
             .then(answers => {
-              const widgetId = answers.id;
-              const widgetName = answers.name;
-              const widgetDescription = answers.description;
-              const widgetAuthor = answers.author;
+              try {
+                const widgetId = answers.id;
+                const widgetName = answers.name;
+                const widgetDescription = answers.description;
+                const widgetAuthor = answers.author;
 
-              const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
+                const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
 
-              if (result) {
-                console.log(symbols.success, chalk.green(`项目初始化完成`));
+                if (result) {
+                  console.log(symbols.success, chalk.green(`项目初始化完成`));
+                }
+              } catch (error) {
+                console.log(symbols.error, chalk.red(error));
               }
             });
         }
@@ -79,23 +96,27 @@ program
   .command("list")
   .description("列出所有Widget")
   .action(() => {
-    const widgetsPath = `src/widgets/widgets.json`;
-    if (fs.existsSync(widgetsPath)) {
-      const widgetsJson = fs.readFileSync(widgetsPath).toString();
-      const widgets = JSON.parse(widgetsJson);
+    try {
+      const widgetsPath = `src/widgets/widgets.json`;
+      if (fs.existsSync(widgetsPath)) {
+        const widgetsJson = fs.readFileSync(widgetsPath).toString();
+        const widgets = JSON.parse(widgetsJson);
 
-      for (let widget of widgets.widgets) {
-        const widgetPath = `src/widgets/${widget.path}`;
-        const widgetManifestPath = `${widgetPath}/manifest.json`;
-        if (fs.existsSync(widgetManifestPath)) {
-          let manifestJson = fs.readFileSync(widgetManifestPath).toString();
-          const manifest = JSON.parse(manifestJson);
-          console.log(
-            symbols.info,
-            chalk.white(`标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`)
-          );
+        for (let widget of widgets.widgets) {
+          const widgetPath = `src/widgets/${widget.path}`;
+          const widgetManifestPath = `${widgetPath}/manifest.json`;
+          if (fs.existsSync(widgetManifestPath)) {
+            let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+            const manifest = JSON.parse(manifestJson);
+            console.log(
+              symbols.info,
+              chalk.white(`标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`)
+            );
+          }
         }
       }
+    } catch (error) {
+      console.log(symbols.error, chalk.red(error));
     }
   });
 
@@ -123,19 +144,23 @@ program
         }
       ])
       .then(answers => {
-        const widgetId = answers.id;
-        const widgetName = answers.name;
-        const widgetDescription = answers.description;
-        const widgetAuthor = answers.author;
-        const widgetPath = `src/widgets/${widgetId}`;
-        if (!fs.existsSync(widgetPath)) {
-          const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
+        try {
+          const widgetId = answers.id;
+          const widgetName = answers.name;
+          const widgetDescription = answers.description;
+          const widgetAuthor = answers.author;
+          const widgetPath = `src/widgets/${widgetId}`;
+          if (!fs.existsSync(widgetPath)) {
+            const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
 
-          if (result) {
-            console.log(symbols.success, chalk.green(`Widget创建成功`));
+            if (result) {
+              console.log(symbols.success, chalk.green(`Widget创建成功`));
+            }
+          } else {
+            console.log(symbols.error, chalk.red(`已经存在Widget:${widgetId}`));
           }
-        } else {
-          console.log(symbols.error, chalk.red(`已经存在Widget:${widgetId}`));
+        } catch (error) {
+          console.log(symbols.error, chalk.red(error));
         }
       });
   });
@@ -152,10 +177,10 @@ program
         }
       ])
       .then(answers => {
-        const widgetId = answers.id;
-        const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
-        if (fs.existsSync(widgetManifestPath)) {
-          try {
+        try {
+          const widgetId = answers.id;
+          const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+          if (fs.existsSync(widgetManifestPath)) {
             const widgetsPath = `src/widgets/widgets.json`;
             let widgetsJson = fs.readFileSync(widgetsPath).toString();
             const widgets = JSON.parse(widgetsJson);
@@ -164,16 +189,27 @@ program
             }
             widgetsJson = JSON.stringify(widgets);
             fs.writeFileSync(widgetsPath, widgetsJson);
-            child_process.execSync(`nginx -s stop`);
-            child_process.execSync(`nginx -p . -c nginx.conf`);
-            child_process.execSync(`npm run start-widget -- --name=${widgetId}`, {
-              stdio: "inherit"
+            const defaultUrl = "http://103.254.70.211:18080";
+            startProxyServer(defaultUrl, function() {
+              const childprocess = child_process.exec(
+                `npm run start-widget -- --name=${widgetId}`,
+                {
+                  shell: true,
+                  detached: true
+                }
+              );
+              childprocess.stdout.on("data", function(data) {
+                console.log(data.toString());
+              });
+              childprocess.stderr.on("data", function(data) {
+                console.log(data.toString());
+              });
             });
-          } catch (error) {
-            console.log(symbols.error, chalk.red(error));
+          } else {
+            console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
           }
-        } else {
-          console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
+        } catch (error) {
+          console.log(symbols.error, chalk.red(error));
         }
       });
   });
@@ -190,18 +226,18 @@ program
         }
       ])
       .then(answers => {
-        const widgetId = answers.id;
-        const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
-        if (fs.existsSync(widgetManifestPath)) {
-          try {
+        try {
+          const widgetId = answers.id;
+          const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+          if (fs.existsSync(widgetManifestPath)) {
             child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
               stdio: "inherit"
             });
-          } catch (error) {
-            console.log(symbols.error, chalk.red(error));
+          } else {
+            console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
           }
-        } else {
-          console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
+        } catch (error) {
+          console.log(symbols.error, chalk.red(error));
         }
       });
   });
@@ -263,15 +299,36 @@ function createWidget(id, name, description, author) {
     fs.writeFileSync(widgetsPath, widgetsJson);
 
     console.log(symbols.info, chalk.white(`完成创建Widget:${id}...`));
-
-    console.log(symbols.info, chalk.white(`开始安装依赖组件...`));
-
-    child_process.execSync("npm install", { stdio: "inherit" });
-
-    console.log(symbols.info, chalk.white(`完成安装依赖组件...`));
   } catch (error) {
     console.log(symbols.error, chalk.red(error));
   }
 
   return true;
+}
+
+/**
+ * 启动代理服务
+ * @param {*} url 
+ * @param {*} callback 
+ */
+function startProxyServer(url, callback) {
+  console.log(symbols.info, chalk.blue(`正在启动代理服务...`));
+  var app = express();
+  app.use(
+    "/",
+    proxy({
+      target: url,
+      changeOrigin: true,
+      pathRewrite: {
+        "/core/widgets": "/widgets"
+      },
+      router: { "/core/widgets": "http://127.0.0.1:8088/" }
+    })
+  );
+  app.listen(9999, function() {
+    console.log(symbols.info, chalk.blue(`代理服务器已启动...`));
+    if (callback) {
+      callback();
+    }
+  });
 }
