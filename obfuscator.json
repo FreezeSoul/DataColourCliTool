@@ -10,7 +10,7 @@
     "identifierNamesGenerator": "hexadecimal",
     "log": true,
     "renameGlobals": false,
-    "rotateStringArray": false,
+    "rotateStringArray": true,
     "selfDefending": false,
     "stringArray": true,
     "stringArrayEncoding": "base64",
