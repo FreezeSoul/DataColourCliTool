@@ -190,7 +190,7 @@ program
             for (let widget of widgets.widgets) {
               widget.enable = widget.path === widgetId;
             }
-            widgetsJson = JSON.stringify(widgets);
+            widgetsJson = JSON.stringify(widgets, null, 2);
             fs.writeFileSync(widgetsPath, widgetsJson);
             const defaultUrl = "http://103.254.70.211:18080";
             startProxyServer(defaultUrl, function() {
