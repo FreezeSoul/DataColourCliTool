@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 const fs = require("fs");
 const path = require("path");
 const ora = require("ora");
@@ -346,7 +347,7 @@ function createWidget(id, name, description, author) {
     manifest.description = description;
     manifest.author = author;
 
-    manifestJson = JSON.stringify(manifest);
+    manifestJson = JSON.stringify(manifest, null, 2);
     fs.writeFileSync(widgetManifestPath, manifestJson);
     //const result = handlebars.compile(content)(meta);
 
@@ -357,7 +358,7 @@ function createWidget(id, name, description, author) {
       widget.enable = false;
     }
     widgets.widgets.push({ group: "测试", tag: "Test", path: id, enable: true });
-    widgetsJson = JSON.stringify(widgets);
+    widgetsJson = JSON.stringify(widgets, null, 2);
     fs.writeFileSync(widgetsPath, widgetsJson);
 
     console.log(symbols.info, chalk.white(`完成创建Widget:${id}...`));

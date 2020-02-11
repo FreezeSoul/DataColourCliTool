@@ -12,7 +12,7 @@
     "renameGlobals": false,
     "rotateStringArray": false,
     "selfDefending": false,
-    "stringArray": false,
+    "stringArray": true,
     "stringArrayEncoding": "base64",
     "stringArrayThreshold": 0.75,
     "transformObjectKeys": false,
