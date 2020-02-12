@@ -17,6 +17,12 @@ const download = require("download-git-repo");
 const child_process = require("child_process");
 
 const githublink = "FreezeSoul/DataColourWidgetTemplate#master";
+const dcServerAddress = "http://103.254.70.211:18080";
+const widgetDebugUrl = "http://127.0.0.1:8088/";
+const ftpServerAddress = "173.242.120.250";
+const ftpServerUserName = "datacolour";
+const ftpServerPassword = "datacolour";
+const proxyServerPort = 9999;
 
 try {
   const packagePath = path.resolve(__dirname, "package.json");
@@ -176,7 +182,9 @@ program
       .prompt([
         {
           name: "id",
-          message: "请输入要调试的Widget的标识"
+          message: "请选择要调试的Widget",
+          type: "rawlist",
+          choices: getWidgetIdList()
         }
       ])
       .then(answers => {
@@ -192,8 +200,7 @@ program
             }
             widgetsJson = JSON.stringify(widgets, null, 2);
             fs.writeFileSync(widgetsPath, widgetsJson);
-            const defaultUrl = "http://103.254.70.211:18080";
-            startProxyServer(defaultUrl, function() {
+            startProxyServer(dcServerAddress, function() {
               const childprocess = child_process.exec(
                 `npm run start-widget -- --name=${widgetId}`,
                 {
@@ -225,7 +232,9 @@ program
       .prompt([
         {
           name: "id",
-          message: "请输入要构建的Widget的标识"
+          message: "请选择要构建的Widget",
+          type: "rawlist",
+          choices: getWidgetIdList()
         }
       ])
       .then(answers => {
@@ -253,7 +262,9 @@ program
       .prompt([
         {
           name: "id",
-          message: "请输入要发布的Widget的标识"
+          message: "请选择要发布的Widget",
+          type: "rawlist",
+          choices: getWidgetIdList()
         }
       ])
       .then(answers => {
@@ -273,7 +284,7 @@ program
             //压缩Widget目录
             tar.pack(widgetPath).pipe(fs.createWriteStream(widgetTar));
             //连接FTP服务器
-            connectFtp(function(ftp) {
+            connectFtpServer(function(ftp) {
               const spinner = ora("部件正在发布中...");
               spinner.start();
               const uploadfile = fs.createReadStream(widgetTar);
@@ -370,6 +381,44 @@ function createWidget(id, name, description, author) {
 }
 
 /**
+ * @description 获取所有部件ID
+ * @returns
+ */
+function getWidgetIdList() {
+  const widgetIds = [];
+  try {
+    const widgetsPath = `src/widgets/widgets.json`;
+    if (fs.existsSync(widgetsPath)) {
+      const widgetsJson = fs.readFileSync(widgetsPath).toString();
+      const widgets = JSON.parse(widgetsJson);
+
+      for (let widget of widgets.widgets) {
+        try {
+          const widgetPath = `src/widgets/${widget.path}`;
+          const widgetManifestPath = `${widgetPath}/manifest.json`;
+          if (fs.existsSync(widgetManifestPath)) {
+            let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+            const manifest = JSON.parse(manifestJson);
+            widgetIds.push({
+              value: manifest.id,
+              name: `标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`
+            });
+          }
+        } catch (error) {
+          console.log(symbols.error, chalk.red(`${widget.path}读取失败`));
+          console.log(symbols.error, chalk.red(error));
+        }
+      }
+    }
+  } catch (error) {
+    console.log(symbols.error, chalk.red(`widgets.json读取失败`));
+    console.log(symbols.error, chalk.red(error));
+  }
+
+  return widgetIds;
+}
+
+/**
  * 启动代理服务
  * @param {*} url
  * @param {*} callback
@@ -385,11 +434,15 @@ function startProxyServer(url, callback) {
       pathRewrite: {
         "/core/widgets": "/widgets"
       },
-      router: { "/core/widgets": "http://127.0.0.1:8088/" }
+      router: { "/core/widgets": widgetDebugUrl }
     })
   );
-  app.listen(9999, function() {
+  app.listen(proxyServerPort, function() {
     console.log(symbols.info, chalk.blue(`代理服务器已启动...`));
+    console.log(symbols.info, chalk.green(`浏览器命令行启动示例：`));
+    console.log(symbols.info, chalk.green(`Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`));
+    console.log(symbols.info, chalk.green(`Linux: /opt/google/chrome/chrome --disable-web-security --user-data-dir=/tmp/chrome_tmp`));
+    console.log(symbols.info, chalk.green(`OSX: open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --disable-web-security --user-data-dir="/tmp/chrome_tmp"`));
     if (callback) {
       callback();
     }
@@ -400,7 +453,7 @@ function startProxyServer(url, callback) {
  * 连接服务器地址
  * @param {*} callback
  */
-function connectFtp(callback) {
+function connectFtpServer(callback) {
   const ftp = new Client();
   const spinner = ora("开始建立服务器连接...");
   spinner.start();
@@ -415,5 +468,5 @@ function connectFtp(callback) {
     spinner.fail();
     console.log(symbols.error, chalk.red(err));
   });
-  ftp.connect({ host: "173.242.120.250", user: "datacolour", password: "datacolour" });
+  ftp.connect({ host: ftpServerAddress, user: ftpServerUserName, password: ftpServerPassword });
 }
