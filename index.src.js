@@ -195,18 +195,24 @@ program
             const widgetsPath = `src/widgets/widgets.json`;
             let widgetsJson = fs.readFileSync(widgetsPath).toString();
             const widgets = JSON.parse(widgetsJson);
+            widgets.version = getNextVersion(widgets.version);
             for (let widget of widgets.widgets) {
               widget.enable = widget.path === widgetId;
             }
             widgetsJson = JSON.stringify(widgets, null, 2);
             fs.writeFileSync(widgetsPath, widgetsJson);
+            
+            let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+            const manifest = JSON.parse(manifestJson);
+            manifest.version = getNextVersion(manifest.version);
+            manifestJson = JSON.stringify(manifest, null, 2);
+            fs.writeFileSync(widgetManifestPath, manifestJson);
+
             startProxyServer(dcServerAddress, function() {
-              const childprocess = child_process.exec(
-                `npm run start-widget -- --name=${widgetId}`,
-                {
-                  shell: true,
-                  detached: true
-                }
+              const childprocess = child_process.spawn(
+                `npm`,
+                [`run`, `start-widget`, `-- --name=${widgetId}`],
+                { shell: true }
               );
               childprocess.stdout.on("data", function(data) {
                 console.log(data.toString());
@@ -365,6 +371,7 @@ function createWidget(id, name, description, author) {
     const widgetsPath = `src/widgets/widgets.json`;
     let widgetsJson = fs.readFileSync(widgetsPath).toString();
     const widgets = JSON.parse(widgetsJson);
+    widgets.version = getNextVersion(widgets.version);
     for (let widget of widgets.widgets) {
       widget.enable = false;
     }
@@ -378,6 +385,21 @@ function createWidget(id, name, description, author) {
   }
 
   return true;
+}
+
+/**
+ * @description 获取下个版本号
+ * @param {*} version
+ * @returns
+ */
+function getNextVersion(version) {
+  if (version) {
+    const versionMatch = version.match(/(.*\.)(\d+)$/);
+    if (versionMatch && versionMatch[1] && versionMatch[2]) {
+      return `${versionMatch[1]}${parseInt(versionMatch[2]) + 1}`;
+    }
+  }
+  return version;
 }
 
 /**
@@ -439,10 +461,25 @@ function startProxyServer(url, callback) {
   );
   app.listen(proxyServerPort, function() {
     console.log(symbols.info, chalk.blue(`代理服务器已启动...`));
-    console.log(symbols.info, chalk.green(`浏览器命令行启动示例：`));
-    console.log(symbols.info, chalk.green(`Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`));
-    console.log(symbols.info, chalk.green(`Linux: /opt/google/chrome/chrome --disable-web-security --user-data-dir=/tmp/chrome_tmp`));
-    console.log(symbols.info, chalk.green(`OSX: open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --disable-web-security --user-data-dir="/tmp/chrome_tmp"`));
+    console.log(symbols.info, chalk.green(`命令行启动浏览器示例：`));
+    console.log(
+      symbols.info,
+      chalk.green(
+        `Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`
+      )
+    );
+    console.log(
+      symbols.info,
+      chalk.green(
+        `Linux: /opt/google/chrome/chrome --disable-web-security --user-data-dir=/tmp/chrome_tmp`
+      )
+    );
+    console.log(
+      symbols.info,
+      chalk.green(
+        `OSX: open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --disable-web-security --user-data-dir="/tmp/chrome_tmp"`
+      )
+    );
     if (callback) {
       callback();
     }
