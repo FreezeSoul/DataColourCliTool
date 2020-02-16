@@ -201,12 +201,13 @@ program
             }
             widgetsJson = JSON.stringify(widgets, null, 2);
             fs.writeFileSync(widgetsPath, widgetsJson);
-            
+
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
             const manifest = JSON.parse(manifestJson);
             manifest.version = getNextVersion(manifest.version);
             manifestJson = JSON.stringify(manifest, null, 2);
             fs.writeFileSync(widgetManifestPath, manifestJson);
+            console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
             startProxyServer(dcServerAddress, function() {
               const childprocess = child_process.spawn(
@@ -215,10 +216,10 @@ program
                 { shell: true }
               );
               childprocess.stdout.on("data", function(data) {
-                console.log(data.toString());
+                console.log(symbols.info, chalk.white(data.toString()));
               });
               childprocess.stderr.on("data", function(data) {
-                console.log(data.toString());
+                console.log(symbols.error, chalk.red(data.toString()));
               });
             });
           } else {
@@ -248,12 +249,12 @@ program
           const widgetId = answers.id;
           const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
           if (fs.existsSync(widgetManifestPath)) {
-
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
             const manifest = JSON.parse(manifestJson);
             manifest.version = getNextVersion(manifest.version);
             manifestJson = JSON.stringify(manifest, null, 2);
             fs.writeFileSync(widgetManifestPath, manifestJson);
+            console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
             child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
               stdio: "inherit"
