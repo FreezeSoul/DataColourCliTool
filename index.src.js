@@ -216,10 +216,10 @@ program
                 { shell: true }
               );
               childprocess.stdout.on("data", function(data) {
-                console.log(symbols.info, chalk.white(data.toString()));
+                console.log(data.toString());
               });
               childprocess.stderr.on("data", function(data) {
-                console.log(symbols.error, chalk.red(data.toString()));
+                console.log(data.toString());
               });
             });
           } else {
@@ -311,7 +311,7 @@ program
                 }
                 ftp.end();
                 spinner.succeed("部件正在发布中...");
-                console.log(symbols.info, chalk.white(`部件已成功发布...`));
+                console.log(symbols.success, chalk.white(`部件已成功发布...`));
                 console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
               });
               let uploadedSize = 0;
