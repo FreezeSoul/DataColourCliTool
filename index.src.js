@@ -248,6 +248,13 @@ program
           const widgetId = answers.id;
           const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
           if (fs.existsSync(widgetManifestPath)) {
+
+            let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+            const manifest = JSON.parse(manifestJson);
+            manifest.version = getNextVersion(manifest.version);
+            manifestJson = JSON.stringify(manifest, null, 2);
+            fs.writeFileSync(widgetManifestPath, manifestJson);
+
             child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
               stdio: "inherit"
             });
