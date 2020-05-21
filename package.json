@@ -1,6 +1,6 @@
 {
   "name": "datacolour-cli",
-  "version": "1.1.18",
+  "version": "1.1.21",
   "description": "DataColour Cli Tool",
   "bin": {
     "datacolour-cli": "index.js"

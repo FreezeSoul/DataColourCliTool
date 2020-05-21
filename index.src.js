@@ -17,7 +17,7 @@ const download = require("download-git-repo");
 const child_process = require("child_process");
 
 const githublink = "FreezeSoul/DataColourWidgetTemplate#master";
-const dcServerAddress = "http://103.254.70.211:18080";
+const dcServerAddress = "http://39.101.138.43:8080";
 const widgetDebugUrl = "http://127.0.0.1:8088/";
 const ftpServerAddress = "ftp.datacolour.cn";
 const ftpServerUserName = "datacolour";
