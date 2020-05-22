@@ -15,6 +15,7 @@ const handlebars = require("handlebars");
 const proxy = require("http-proxy-middleware");
 const download = require("download-git-repo");
 const child_process = require("child_process");
+const ChromeLauncher = require("chrome-launcher");
 
 const githublink = "FreezeSoul/DataColourWidgetTemplate#master";
 const dcServerAddress = "http://39.101.138.43:8080";
@@ -36,7 +37,7 @@ try {
 program
   .command("init <name>")
   .description("初始化Widget项目")
-  .action(name => {
+  .action((name) => {
     //创建项目目录
     if (!fs.existsSync(name)) {
       //首次需要创建一个widget
@@ -45,7 +46,7 @@ program
       const spinner = ora("正在下载Widget模板...");
       spinner.start();
 
-      download(githublink, name, { clone: false }, err => {
+      download(githublink, name, { clone: false }, (err) => {
         if (err) {
           spinner.fail();
           console.log(symbols.error, chalk.red(err));
@@ -62,22 +63,22 @@ program
             .prompt([
               {
                 name: "id",
-                message: "请输入Widget的标识，要求英文、数字、下划线"
+                message: "请输入Widget的标识，要求英文、数字、下划线",
               },
               {
                 name: "name",
-                message: "请输入Widget的名称，要求简短的中文名称定义"
+                message: "请输入Widget的名称，要求简短的中文名称定义",
               },
               {
                 name: "description",
-                message: "请输入Widget的描述，要求简短的中文描述信息"
+                message: "请输入Widget的描述，要求简短的中文描述信息",
               },
               {
                 name: "author",
-                message: "请输入作者名称，如：FreezeSoul<freezesoul@gmail.com>"
-              }
+                message: "请输入作者名称，如：FreezeSoul<freezesoul@gmail.com>",
+              },
             ])
-            .then(answers => {
+            .then((answers) => {
               try {
                 const widgetId = answers.id;
                 const widgetName = answers.name;
@@ -117,10 +118,7 @@ program
           if (fs.existsSync(widgetManifestPath)) {
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
             const manifest = JSON.parse(manifestJson);
-            console.log(
-              symbols.info,
-              chalk.white(`标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`)
-            );
+            console.log(symbols.info, chalk.white(`标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`));
           }
         }
       }
@@ -137,22 +135,22 @@ program
       .prompt([
         {
           name: "id",
-          message: "请输入Widget的标识，要求英文、数字、下划线"
+          message: "请输入Widget的标识，要求英文、数字、下划线",
         },
         {
           name: "name",
-          message: "请输入Widget的名称，要求简短的中文名称定义"
+          message: "请输入Widget的名称，要求简短的中文名称定义",
         },
         {
           name: "description",
-          message: "请输入Widget的描述，要求简短的中文描述信息"
+          message: "请输入Widget的描述，要求简短的中文描述信息",
         },
         {
           name: "author",
-          message: "请输入作者名称，如：FreezeSoul<freezesoul@gmail.com>"
-        }
+          message: "请输入作者名称，如：FreezeSoul<freezesoul@gmail.com>",
+        },
       ])
-      .then(answers => {
+      .then((answers) => {
         try {
           const widgetId = answers.id;
           const widgetName = answers.name;
@@ -184,10 +182,10 @@ program
           name: "id",
           message: "请选择要调试的Widget",
           type: "rawlist",
-          choices: getWidgetIdList()
-        }
+          choices: getWidgetIdList(),
+        },
       ])
-      .then(answers => {
+      .then((answers) => {
         try {
           const widgetId = answers.id;
           const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
@@ -209,16 +207,12 @@ program
             fs.writeFileSync(widgetManifestPath, manifestJson);
             console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
-            startProxyServer(dcServerAddress, function() {
-              const childprocess = child_process.spawn(
-                `npm`,
-                [`run`, `start-widget`, `-- --name=${widgetId}`],
-                { shell: true }
-              );
-              childprocess.stdout.on("data", function(data) {
+            startProxyServer(dcServerAddress, function () {
+              const childprocess = child_process.spawn(`npm`, [`run`, `start-widget`, `-- --name=${widgetId}`], { shell: true });
+              childprocess.stdout.on("data", function (data) {
                 console.log(data.toString());
               });
-              childprocess.stderr.on("data", function(data) {
+              childprocess.stderr.on("data", function (data) {
                 console.log(data.toString());
               });
             });
@@ -241,10 +235,10 @@ program
           name: "id",
           message: "请选择要构建的Widget",
           type: "rawlist",
-          choices: getWidgetIdList()
-        }
+          choices: getWidgetIdList(),
+        },
       ])
-      .then(answers => {
+      .then((answers) => {
         try {
           const widgetId = answers.id;
           const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
@@ -257,7 +251,7 @@ program
             console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
             child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
-              stdio: "inherit"
+              stdio: "inherit",
             });
           } else {
             console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
@@ -278,32 +272,27 @@ program
           name: "id",
           message: "请选择要发布的Widget",
           type: "rawlist",
-          choices: getWidgetIdList()
-        }
+          choices: getWidgetIdList(),
+        },
       ])
-      .then(answers => {
+      .then((answers) => {
         try {
           const widgetId = answers.id;
           const widgetPath = `src/widgets/${widgetId}`;
           const widgetManifestPath = `${widgetPath}/manifest.json`;
-          const timeId = new Date()
-            .toISOString()
-            .replace(/T/, "")
-            .replace(/\..+/, "")
-            .replace(/-/g, "")
-            .replace(/:/g, "");
+          const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
           const widgetTicket = `${widgetId}${timeId}`;
           const widgetTar = `${widgetTicket}.tar`;
           if (fs.existsSync(widgetManifestPath)) {
             //压缩Widget目录
             tar.pack(widgetPath).pipe(fs.createWriteStream(widgetTar));
             //连接FTP服务器
-            connectFtpServer(function(ftp) {
+            connectFtpServer(function (ftp) {
               const spinner = ora("部件正在发布中...");
               spinner.start();
               const uploadfile = fs.createReadStream(widgetTar);
               const fileSize = fs.statSync(widgetTar).size;
-              ftp.put(uploadfile, widgetTar, function(err) {
+              ftp.put(uploadfile, widgetTar, function (err) {
                 if (err) {
                   spinner.fail();
                   console.log(symbols.error, chalk.red(err));
@@ -315,10 +304,9 @@ program
                 console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
               });
               let uploadedSize = 0;
-              uploadfile.on("data", function(buffer) {
+              uploadfile.on("data", function (buffer) {
                 uploadedSize += buffer.length;
-                spinner.text =
-                  "部件正在发布中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
+                spinner.text = "部件正在发布中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
               });
             });
           } else {
@@ -431,7 +419,7 @@ function getWidgetIdList() {
             const manifest = JSON.parse(manifestJson);
             widgetIds.push({
               value: manifest.id,
-              name: `标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`
+              name: `标识:${manifest.id},名称:${manifest.name},版本:${manifest.version}`,
             });
           }
         } catch (error) {
@@ -462,32 +450,33 @@ function startProxyServer(url, callback) {
       target: url,
       changeOrigin: true,
       pathRewrite: {
-        "/core/widgets": "/widgets"
+        "/core/widgets": "/widgets",
       },
-      router: { "/core/widgets": widgetDebugUrl }
+      router: { "/core/widgets": widgetDebugUrl },
     })
   );
-  app.listen(proxyServerPort, function() {
+  app.listen(proxyServerPort, function () {
     console.log(symbols.info, chalk.blue(`代理服务器已启动...`));
-    console.log(symbols.info, chalk.green(`命令行启动浏览器示例：`));
+    console.log(symbols.info, chalk.blue(`启动谷歌浏览器调试...`));
+    console.log(symbols.info, chalk.green(`如浏览器启动失败，请通过如下命令行手工启动：`));
     console.log(
       symbols.info,
-      chalk.green(
-        `Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`
-      )
+      chalk.green(`Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`)
     );
-    console.log(
-      symbols.info,
-      chalk.green(
-        `Linux: /opt/google/chrome/chrome --disable-web-security --user-data-dir=/tmp/chrome_tmp`
-      )
-    );
+    console.log(symbols.info, chalk.green(`Linux: /opt/google/chrome/chrome --disable-web-security --user-data-dir=/tmp/chrome_tmp`));
     console.log(
       symbols.info,
       chalk.green(
         `OSX: open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --disable-web-security --user-data-dir="/tmp/chrome_tmp"`
       )
     );
+
+    ChromeLauncher.launch({
+      startingUrl: `http://127.0.0.1:${proxyServerPort}`,
+      chromeFlags: ["--disable-web-security", "--user-data-dir=./chrome_tmp"],
+    }).then((chrome) => {
+      console.log(symbols.info, chalk.blue(`谷歌浏览器启动成功...`));
+    });
     if (callback) {
       callback();
     }
@@ -502,14 +491,14 @@ function connectFtpServer(callback) {
   const ftp = new Client();
   const spinner = ora("开始建立服务器连接...");
   spinner.start();
-  ftp.on("ready", function() {
+  ftp.on("ready", function () {
     spinner.succeed();
     console.log(symbols.info, chalk.white(`服务器连接已建立...`));
     if (callback) {
       callback(ftp);
     }
   });
-  ftp.on("error", function(err) {
+  ftp.on("error", function (err) {
     spinner.fail();
     console.log(symbols.error, chalk.red(err));
   });

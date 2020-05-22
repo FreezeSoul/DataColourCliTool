@@ -1,6 +1,6 @@
 {
   "name": "datacolour-cli",
-  "version": "1.1.21",
+  "version": "1.1.22",
   "description": "DataColour Cli Tool",
   "bin": {
     "datacolour-cli": "index.js"
@@ -16,6 +16,7 @@
   "dependencies": {
     "chalk": "^3.0.0",
     "child_process": "^1.0.2",
+    "chrome-launcher": "^0.13.2",
     "commander": "^4.1.1",
     "copy-dir": "^1.2.0",
     "download-git-repo": "^3.0.2",
