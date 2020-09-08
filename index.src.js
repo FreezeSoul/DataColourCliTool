@@ -184,10 +184,15 @@ program
           type: "rawlist",
           choices: getWidgetIdList(),
         },
+        {
+          name: "host",
+          message: "请输入datacolour平台服务地址，默认调用公共服务",
+        },
       ])
       .then((answers) => {
         try {
           const widgetId = answers.id;
+          const serverAddress = answers.host ? answers.host : dcServerAddress;
           const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
           if (fs.existsSync(widgetManifestPath)) {
             const widgetsPath = `src/widgets/widgets.json`;
@@ -207,7 +212,7 @@ program
             fs.writeFileSync(widgetManifestPath, manifestJson);
             console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
-            startProxyServer(dcServerAddress, function () {
+            startProxyServer(serverAddress, function () {
               const childprocess = child_process.spawn(`npm`, [`run`, `start-widget`, `-- --name=${widgetId}`], { shell: true });
               childprocess.stdout.on("data", function (data) {
                 console.log(data.toString());
