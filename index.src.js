@@ -322,13 +322,14 @@ program
         try {
           const widgetId = answers.id;
           const widgetPath = `src/widgets/${widgetId}`;
+          const widgetDistPath = `dist/widgets/${widgetId}`;
           const widgetManifestPath = `${widgetPath}/manifest.json`;
           const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
           const widgetTicket = `${widgetId}.${timeId}`;
           const widgetSrcTarName = `${widgetTicket}.src.tar`;
-          const widgetBuildTarName = `${widgetTicket}.build.tar`;
+          const widgetDistTarName = `${widgetTicket}.dist.tar`;
           const widgetSrcTarPath = `build/${widgetSrcTarName}`;
-          const widgetBuildTarPath = `build/${widgetBuildTarName}`;
+          const widgetDistTarPath = `build/${widgetDistTarName}`;
 
           if (fs.existsSync(widgetManifestPath)) {
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
@@ -342,9 +343,8 @@ program
               stdio: "inherit",
             });
 
-            const widgetDistPath = `dist/widgets/${widgetId}`;
             tar.pack(widgetPath).pipe(fs.createWriteStream(widgetSrcTarPath));
-            tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetBuildTarPath));
+            tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
 
             connectFtpServer(function (ftp) {
               const spinner = ora("部件代码提交中...");
