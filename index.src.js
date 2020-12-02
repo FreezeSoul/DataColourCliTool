@@ -193,15 +193,16 @@ program
       .then((answers) => {
         try {
           const widgetId = answers.id;
+          const widgetPath = getWidgetPath(widgetId);
           const serverAddress = answers.host ? answers.host : dcServerAddress;
-          const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+          const widgetManifestPath = `src/widgets/${widgetPath}/manifest.json`;
           if (fs.existsSync(widgetManifestPath)) {
             const widgetsPath = `src/widgets/widgets.json`;
             let widgetsJson = fs.readFileSync(widgetsPath).toString();
             const widgets = JSON.parse(widgetsJson);
             widgets.version = getNextVersion(widgets.version);
             for (let widget of widgets.widgets) {
-              widget.enable = widget.path === widgetId;
+              widget.enable = widget.path === widgetPath;
             }
             widgetsJson = JSON.stringify(widgets, null, 2);
             fs.writeFileSync(widgetsPath, widgetsJson);
@@ -214,7 +215,7 @@ program
             console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
             startProxyServer(serverAddress, function () {
-              const childprocess = child_process.spawn(`npm`, [`run`, `start-widget`, `-- --name=${widgetId}`], { shell: true });
+              const childprocess = child_process.spawn(`npm`, [`run`, `start-widget`, `-- --path=${widgetPath}`], { shell: true });
               childprocess.stdout.on("data", function (data) {
                 console.log(data.toString());
               });
@@ -247,7 +248,8 @@ program
       .then((answers) => {
         try {
           const widgetId = answers.id;
-          const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+          const widgetPath = getWidgetPath(widgetId);
+          const widgetManifestPath = `src/widgets/${widgetPath}/manifest.json`;
           if (fs.existsSync(widgetManifestPath)) {
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
             const manifest = JSON.parse(manifestJson);
@@ -256,7 +258,7 @@ program
             fs.writeFileSync(widgetManifestPath, manifestJson);
             console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
-            child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
+            child_process.execSync(`npm run build-widget:pro -- --path=${widgetPath}`, {
               stdio: "inherit",
             });
           } else {
@@ -276,7 +278,8 @@ program
       const widgetObjs = getWidgetsList();
       for (let widgetObj of widgetObjs) {
         const widgetId = widgetObj.value;
-        const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+        const widgetPath = getWidgetPath(widgetId);
+        const widgetManifestPath = `src/widgets/${widgetPath}/manifest.json`;
         if (fs.existsSync(widgetManifestPath)) {
           let manifestJson = fs.readFileSync(widgetManifestPath).toString();
           const manifest = JSON.parse(manifestJson);
@@ -287,13 +290,17 @@ program
           console.log(symbols.info, chalk.white(`当前Widget标识：${widgetId}`));
           console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
-          child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
+          child_process.execSync(`npm run build-widget:pro -- --path=${widgetPath}`, {
             stdio: "inherit",
           });
 
           console.log(symbols.success, chalk.green(`完成构建Widget：${manifest.version}`));
-          const widgetDistPath = `dist/widgets/${widgetId}`;
-          const widgetTargetPath = `build/${widgetId}`;
+          const widgetDistPath = `dist/widgets/${widgetPath}`;
+          const widgetTargetPath = `build/${widgetPath}`;
+
+          if (!fs.existsSync("build")) {
+            fs.mkdirSync("build");
+          }
 
           if (fs.existsSync(widgetDistPath)) {
             fse.moveSync(widgetDistPath, widgetTargetPath);
@@ -323,16 +330,21 @@ program
       .then((answers) => {
         try {
           const widgetId = answers.id;
-          const widgetPath = `src/widgets/${widgetId}`;
-          const widgetDistPath = `dist/widgets/${widgetId}`;
-          const widgetManifestPath = `${widgetPath}/manifest.json`;
+          const widgetPath = getWidgetPath(widgetId);
+          const widgetSrcPath = `src/widgets/${widgetPath}`;
+          const widgetDistPath = `dist/widgets/${widgetPath}`;
+          const widgetManifestPath = `${widgetSrcPath}/manifest.json`;
           const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
           const widgetTicket = `${widgetId}.${timeId}`;
           const widgetSrcTarName = `${widgetTicket}.src.tar`;
           const widgetDistTarName = `${widgetTicket}.dist.tar`;
-          const widgetSrcTarPath = `build/${widgetSrcTarName}`;
-          const widgetDistTarPath = `build/${widgetDistTarName}`;
+          const widgetSrcTarPath = `publish/${widgetSrcTarName}`;
+          const widgetDistTarPath = `publish/${widgetDistTarName}`;
 
+          if (!fs.existsSync("publish")) {
+            fs.mkdirSync("publish");
+          }
+        
           if (fs.existsSync(widgetManifestPath)) {
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
             const manifest = JSON.parse(manifestJson);
@@ -341,11 +353,14 @@ program
             fs.writeFileSync(widgetManifestPath, manifestJson);
             console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
-            child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
+            child_process.execSync(`npm run build-widget:pro -- --path=${widgetPath}`, {
               stdio: "inherit",
             });
 
-            tar.pack(widgetPath).pipe(fs.createWriteStream(widgetSrcTarPath));
+            fs.writeFileSync(`${widgetSrcPath}/__path__.txt`, widgetPath);
+            fs.writeFileSync(`${widgetDistPath}/__path__.txt`, widgetPath);
+
+            tar.pack(widgetSrcPath).pipe(fs.createWriteStream(widgetSrcTarPath));
             tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
 
             connectFtpServer(function (ftp) {
@@ -495,6 +510,25 @@ function getWidgetsList() {
   }
 
   return widgetIds;
+}
+
+/**
+ * @description 获取Widget清单数据
+ * @returns
+ */
+function getWidgetPath(id) {
+  const widgetsPath = `src/widgets/widgets.json`;
+  let widgetsJson = fs.readFileSync(widgetsPath).toString();
+  const widgets = JSON.parse(widgetsJson);
+  for (let widget of widgets.widgets) {
+    const widgetManifestPath = `src/widgets/${widget.path}/manifest.json`;
+    let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+    const manifest = JSON.parse(manifestJson);
+    if (manifest.id === id) {
+      return widget.path;
+    }
+  }
+  console.log(symbols.error, chalk.red(`未找到匹配的widget：${id}`));
 }
 
 /**
