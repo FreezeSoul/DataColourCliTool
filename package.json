@@ -1,6 +1,6 @@
 {
   "name": "datacolour-cli",
-  "version": "1.1.23",
+  "version": "1.1.26",
   "description": "DataColour Cli Tool",
   "bin": {
     "datacolour-cli": "index.js"
@@ -10,7 +10,7 @@
     "datacolour"
   ],
   "scripts": {
-    "build": "javascript-obfuscator index.src.js -o index.js --config obfuscator.json"
+    "build": "javascript-obfuscator index.src.js -o index.js --config obfuscator.json && ./fix-node.sh"
   },
   "license": "ISC",
   "dependencies": {
@@ -21,6 +21,7 @@
     "copy-dir": "^1.2.0",
     "download-git-repo": "^3.0.2",
     "express": "^4.17.1",
+    "fs-extra": "^9.0.1",
     "ftp": "^0.3.10",
     "handlebars": "^4.7.3",
     "http-proxy-middleware": "^0.20.0",

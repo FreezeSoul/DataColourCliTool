@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require("fs");
+const fse = require("fs-extra");
 const path = require("path");
 const ora = require("ora");
 const tar = require("tar-fs");
@@ -182,7 +183,7 @@ program
           name: "id",
           message: "请选择要调试的Widget",
           type: "rawlist",
-          choices: getWidgetIdList(),
+          choices: getWidgetsList(),
         },
         {
           name: "host",
@@ -240,7 +241,7 @@ program
           name: "id",
           message: "请选择要构建的Widget",
           type: "rawlist",
-          choices: getWidgetIdList(),
+          choices: getWidgetsList(),
         },
       ])
       .then((answers) => {
@@ -268,6 +269,43 @@ program
   });
 
 program
+  .command("buildAll")
+  .description("构建所有Widgets")
+  .action(() => {
+    try {
+      const widgetObjs = getWidgetsList();
+      for (let widgetObj of widgetObjs) {
+        const widgetId = widgetObj.value;
+        const widgetManifestPath = `src/widgets/${widgetId}/manifest.json`;
+        if (fs.existsSync(widgetManifestPath)) {
+          let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+          const manifest = JSON.parse(manifestJson);
+          manifest.version = getNextVersion(manifest.version);
+          manifestJson = JSON.stringify(manifest, null, 2);
+          fs.writeFileSync(widgetManifestPath, manifestJson);
+          console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
+
+          child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
+            stdio: "inherit",
+          });
+
+          console.log(symbols.success, chalk.green(`完成构建Widget：${manifest.version}`));
+          const widgetDistPath = `dist/widgets/${widgetId}`;
+          const widgetTargePath = `build/${widgetId}`;
+
+          if (fs.existsSync(widgetDistPath)) {
+            fse.moveSync(widgetDistPath, widgetTargePath);
+          }
+        } else {
+          console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
+        }
+      }
+    } catch (error) {
+      console.log(symbols.error, chalk.red(error));
+    }
+  });
+
+program
   .command("publish")
   .description("发布一个Widget")
   .action(() => {
@@ -277,7 +315,7 @@ program
           name: "id",
           message: "请选择要发布的Widget",
           type: "rawlist",
-          choices: getWidgetIdList(),
+          choices: getWidgetsList(),
         },
       ])
       .then((answers) => {
@@ -287,7 +325,7 @@ program
           const widgetManifestPath = `${widgetPath}/manifest.json`;
           const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
           const widgetTicket = `${widgetId}${timeId}`;
-          const widgetTar = `${widgetTicket}.tar`;
+          const widgetTar = `build/${widgetTicket}.tar`;
           if (fs.existsSync(widgetManifestPath)) {
             //压缩Widget目录
             tar.pack(widgetPath).pipe(fs.createWriteStream(widgetTar));
@@ -407,7 +445,7 @@ function getNextVersion(version) {
  * @description 获取所有部件ID
  * @returns
  */
-function getWidgetIdList() {
+function getWidgetsList() {
   const widgetIds = [];
   try {
     const widgetsPath = `src/widgets/widgets.json`;
@@ -464,17 +502,9 @@ function startProxyServer(url, callback) {
     console.log(symbols.info, chalk.blue(`代理服务器已启动...`));
     console.log(symbols.info, chalk.blue(`启动谷歌浏览器调试...`));
     console.log(symbols.info, chalk.green(`如浏览器启动失败，请通过如下命令行手工启动：`));
-    console.log(
-      symbols.info,
-      chalk.green(`Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`)
-    );
+    console.log(symbols.info, chalk.green(`Window: "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=~/chrome_tmp`));
     console.log(symbols.info, chalk.green(`Linux: /opt/google/chrome/chrome --disable-web-security --user-data-dir=/tmp/chrome_tmp`));
-    console.log(
-      symbols.info,
-      chalk.green(
-        `OSX: open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --disable-web-security --user-data-dir="/tmp/chrome_tmp"`
-      )
-    );
+    console.log(symbols.info, chalk.green(`OSX: open -n -a /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --args --disable-web-security --user-data-dir="/tmp/chrome_tmp"`));
 
     ChromeLauncher.launch({
       startingUrl: `http://127.0.0.1:${proxyServerPort}`,
