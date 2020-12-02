@@ -291,10 +291,10 @@ program
 
           console.log(symbols.success, chalk.green(`完成构建Widget：${manifest.version}`));
           const widgetDistPath = `dist/widgets/${widgetId}`;
-          const widgetTargePath = `build/${widgetId}`;
+          const widgetTargetPath = `build/${widgetId}`;
 
           if (fs.existsSync(widgetDistPath)) {
-            fse.moveSync(widgetDistPath, widgetTargePath);
+            fse.moveSync(widgetDistPath, widgetTargetPath);
           }
         } else {
           console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
@@ -324,32 +324,48 @@ program
           const widgetPath = `src/widgets/${widgetId}`;
           const widgetManifestPath = `${widgetPath}/manifest.json`;
           const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
-          const widgetTicket = `${widgetId}${timeId}`;
-          const widgetTar = `build/${widgetTicket}.tar`;
+          const widgetTicket = `${widgetId}.${timeId}`;
+          const widgetSrcTarName = `${widgetTicket}.src.tar`;
+          const widgetBuildTarName = `${widgetTicket}.build.tar`;
+          const widgetSrcTarPath = `build/${widgetSrcTarName}`;
+          const widgetBuildTarPath = `build/${widgetBuildTarName}`;
+
           if (fs.existsSync(widgetManifestPath)) {
-            //压缩Widget目录
-            tar.pack(widgetPath).pipe(fs.createWriteStream(widgetTar));
-            //连接FTP服务器
+            let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+            const manifest = JSON.parse(manifestJson);
+            manifest.version = getNextVersion(manifest.version);
+            manifestJson = JSON.stringify(manifest, null, 2);
+            fs.writeFileSync(widgetManifestPath, manifestJson);
+            console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
+
+            child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
+              stdio: "inherit",
+            });
+
+            const widgetDistPath = `dist/widgets/${widgetId}`;
+            tar.pack(widgetPath).pipe(fs.createWriteStream(widgetSrcTarPath));
+            tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetBuildTarPath));
+
             connectFtpServer(function (ftp) {
-              const spinner = ora("部件正在发布中...");
+              const spinner = ora("部件代码提交中...");
               spinner.start();
-              const uploadfile = fs.createReadStream(widgetTar);
-              const fileSize = fs.statSync(widgetTar).size;
-              ftp.put(uploadfile, widgetTar, function (err) {
+              const uploadfile = fs.createReadStream(widgetSrcTarPath);
+              const fileSize = fs.statSync(widgetSrcTarPath).size;
+              ftp.put(uploadfile, widgetSrcTarName, function (err) {
                 if (err) {
                   spinner.fail();
                   console.log(symbols.error, chalk.red(err));
                   throw err;
                 }
                 ftp.end();
-                spinner.succeed("部件正在发布中...");
-                console.log(symbols.success, chalk.white(`部件已成功发布...`));
+                spinner.succeed("部件代码提交中...");
+                console.log(symbols.success, chalk.white(`部件已成功提交...`));
                 console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
               });
               let uploadedSize = 0;
               uploadfile.on("data", function (buffer) {
                 uploadedSize += buffer.length;
-                spinner.text = "部件正在发布中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
+                spinner.text = "部件代码提交中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
               });
             });
           } else {
