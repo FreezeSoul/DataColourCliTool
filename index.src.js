@@ -283,6 +283,8 @@ program
           manifest.version = getNextVersion(manifest.version);
           manifestJson = JSON.stringify(manifest, null, 2);
           fs.writeFileSync(widgetManifestPath, manifestJson);
+
+          console.log(symbols.info, chalk.white(`当前Widget标识：${widgetId}`));
           console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
 
           child_process.execSync(`npm run build-widget:pro -- --name=${widgetId}`, {
