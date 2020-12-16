@@ -19,11 +19,13 @@ const child_process = require("child_process");
 const ChromeLauncher = require("chrome-launcher");
 
 const githublink = "FreezeSoul/DataColourWidgetTemplate#master";
+
 const dcServerAddress = "http://39.101.138.43:8080";
 const widgetDebugUrl = "http://127.0.0.1:8088/";
 const ftpServerAddress = "ftp.datacolour.cn";
 const ftpServerUserName = "datacolour";
 const ftpServerPassword = "datacolour";
+
 const proxyServerPort = 9999;
 
 try {
@@ -187,7 +189,7 @@ program
         },
         {
           name: "host",
-          message: "请输入datacolour平台服务地址，默认调用公共服务",
+          message: "请输入平台服务地址，默认调用公共服务",
         },
       ])
       .then((answers) => {
@@ -326,6 +328,10 @@ program
           type: "rawlist",
           choices: getWidgetsList(),
         },
+        {
+          name: "ftp",
+          message: "请确认是否提交至公共插件中心，请输入y/n(默认n)",
+        },
       ])
       .then((answers) => {
         try {
@@ -344,7 +350,7 @@ program
           if (!fs.existsSync("publish")) {
             fs.mkdirSync("publish");
           }
-        
+
           if (fs.existsSync(widgetManifestPath)) {
             let manifestJson = fs.readFileSync(widgetManifestPath).toString();
             const manifest = JSON.parse(manifestJson);
@@ -363,28 +369,31 @@ program
             tar.pack(widgetSrcPath).pipe(fs.createWriteStream(widgetSrcTarPath));
             tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
 
-            connectFtpServer(function (ftp) {
-              const spinner = ora("部件代码提交中...");
-              spinner.start();
-              const uploadfile = fs.createReadStream(widgetSrcTarPath);
-              const fileSize = fs.statSync(widgetSrcTarPath).size;
-              ftp.put(uploadfile, widgetSrcTarName, function (err) {
-                if (err) {
-                  spinner.fail();
-                  console.log(symbols.error, chalk.red(err));
-                  throw err;
-                }
-                ftp.end();
-                spinner.succeed("部件代码提交中...");
-                console.log(symbols.success, chalk.white(`部件已成功提交...`));
-                console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
+            const ftpStatus = answers.ftp;
+            if (ftpStatus === "y") {
+              connectFtpServer(function (ftp) {
+                const spinner = ora("部件代码提交中...");
+                spinner.start();
+                const uploadfile = fs.createReadStream(widgetSrcTarPath);
+                const fileSize = fs.statSync(widgetSrcTarPath).size;
+                ftp.put(uploadfile, widgetSrcTarName, function (err) {
+                  if (err) {
+                    spinner.fail();
+                    console.log(symbols.error, chalk.red(err));
+                    throw err;
+                  }
+                  ftp.end();
+                  spinner.succeed("部件代码提交中...");
+                  console.log(symbols.success, chalk.white(`部件已成功提交...`));
+                  console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
+                });
+                let uploadedSize = 0;
+                uploadfile.on("data", function (buffer) {
+                  uploadedSize += buffer.length;
+                  spinner.text = "部件代码提交中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
+                });
               });
-              let uploadedSize = 0;
-              uploadfile.on("data", function (buffer) {
-                uploadedSize += buffer.length;
-                spinner.text = "部件代码提交中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
-              });
-            });
+            }
           } else {
             console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
           }
@@ -560,7 +569,7 @@ function startProxyServer(url, callback) {
 
     ChromeLauncher.launch({
       startingUrl: `http://127.0.0.1:${proxyServerPort}`,
-      chromeFlags: ["--disable-web-security", "--user-data-dir=./chrome_tmp"],
+      chromeFlags: ["--disable-web-security", "--user-data-dir=./chrome_tmp", "--media-cache-size=1", "--disk-cache-size=1"],
     }).then((chrome) => {
       console.log(symbols.info, chalk.blue(`谷歌浏览器启动成功...`));
     });
