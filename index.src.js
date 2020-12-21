@@ -89,10 +89,10 @@ program
                 const widgetAuthor = answers.author;
 
                 const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
-
                 if (result) {
-                  console.log(symbols.success, chalk.green(`项目初始化完成`));
+                  console.log(symbols.success, chalk.green(`Widget初始化完成`));
                 }
+                
               } catch (error) {
                 console.log(symbols.error, chalk.red(error));
               }
@@ -159,16 +159,12 @@ program
           const widgetName = answers.name;
           const widgetDescription = answers.description;
           const widgetAuthor = answers.author;
-          const widgetPath = `src/widgets/${widgetId}`;
-          if (!fs.existsSync(widgetPath)) {
-            const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
 
-            if (result) {
-              console.log(symbols.success, chalk.green(`Widget创建成功`));
-            }
-          } else {
-            console.log(symbols.error, chalk.red(`已经存在Widget:${widgetId}`));
+          const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor);
+          if (result) {
+            console.log(symbols.success, chalk.green(`Widget创建成功`));
           }
+
         } catch (error) {
           console.log(symbols.error, chalk.red(error));
         }
@@ -421,7 +417,9 @@ function createWidget(id, name, description, author) {
   console.log(symbols.info, chalk.white(`正在创建Widget:${id}...`));
 
   try {
-    const widgetPath = `src/widgets/${id}`;
+    const path = id;
+
+    const widgetPath = `src/widgets/${path}`;
     const widgetTemplate = `src/widgets/widget`;
 
     if (!fs.existsSync(widgetTemplate)) {
@@ -429,7 +427,7 @@ function createWidget(id, name, description, author) {
       return false;
     }
     if (fs.existsSync(widgetPath)) {
-      console.log(symbols.error, chalk.red(`Widget:${id}已存在`));
+      console.log(symbols.error, chalk.red(`Widget:${id}已存在对应目录`));
       return false;
     }
 
@@ -441,6 +439,7 @@ function createWidget(id, name, description, author) {
     const manifest = JSON.parse(manifestJson);
 
     manifest.id = id;
+    manifest.tag = "Test";
     manifest.name = name;
     manifest.description = description;
     manifest.author = author;
@@ -456,7 +455,7 @@ function createWidget(id, name, description, author) {
     for (let widget of widgets.widgets) {
       widget.enable = false;
     }
-    widgets.widgets.push({ group: "测试", tag: "Test", path: id, enable: true });
+    widgets.widgets.push({ group: "测试", path: path, enable: true });
     widgetsJson = JSON.stringify(widgets, null, 2);
     fs.writeFileSync(widgetsPath, widgetsJson);
 
