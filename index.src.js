@@ -57,9 +57,9 @@ program
           spinner.succeed();
           process.chdir(name);
 
-          console.log(symbols.info, chalk.white(`开始安装依赖部件...`));
+          console.log(symbols.info, chalk.white(`开始安装依赖组件...`));
           child_process.execSync("npm install", { stdio: "inherit" });
-          console.log(symbols.info, chalk.white(`完成安装依赖部件...`));
+          console.log(symbols.info, chalk.white(`完成安装依赖组件...`));
 
           console.log(symbols.info, chalk.white(`完成项目初始化，请创建一个Widget`));
         }
@@ -114,12 +114,16 @@ program
           message: "请输入Widget的描述，要求简短的中文描述信息",
         },
         {
+          name: "tag",
+          message: "请输入Widget分类标签，要求英文字母，多个逗号分割",
+        },
+        {
           name: "author",
-          message: "请输入作者名称，如：FreezeSoul<freezesoul@gmail.com>",
+          message: "请输入Widget作者名称，如：FreezeSoul<freezesoul@gmail.com>",
         },
         {
           name: "path",
-          message: "请输入Widget路径，默认路径unofficial",
+          message: "请输入Widget存储路径，默认路径unofficial，建议默认",
         },
       ])
       .then((answers) => {
@@ -128,9 +132,10 @@ program
           const widgetName = answers.name;
           const widgetDescription = answers.description;
           const widgetAuthor = answers.author;
+          const widgetTags = answers.tag ? answers.tag : "Chart";
           const widgetPath = answers.path ? answers.path.replace(/^\/+|\/+$/g, "") : "unofficial";
 
-          const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor, widgetPath);
+          const result = createWidget(widgetId, widgetName, widgetDescription, widgetAuthor, widgetTags, widgetPath);
           if (result) {
             console.log(symbols.success, chalk.green(`Widget创建成功`));
           }
@@ -376,10 +381,11 @@ program.parse(process.argv);
  * @param {*} name
  * @param {*} description
  * @param {*} author
+ * @param {*} tag
  * @param {*} path
  */
-function createWidget(id, name, description, author, path) {
-  if (!id || !name || !description || !path) {
+function createWidget(id, name, description, author, tag, path) {
+  if (!id || !name || !description || !tag || !path) {
     console.log(symbols.error, chalk.red(`请提供完整的Widget信息`));
     return false;
   }
@@ -387,11 +393,14 @@ function createWidget(id, name, description, author, path) {
   console.log(symbols.info, chalk.white(`正在创建Widget:${id}...`));
 
   try {
-    const rootPath = `${path}/${id}`;
+    const parentPath = `${path}/${id}`;
+    const rootPath = `src/widgets/${path}`;
+    const widgetPath = `src/widgets/${parentPath}`;
+    const widgetTemplate = `src/widgets/template/widget`;
 
-    const widgetPath = `src/widgets/${rootPath}`;
-    const widgetTemplate = `src/widgets/widget`;
-
+    if (!fs.existsSync(rootPath)) {
+      fs.mkdirSync(rootPath);
+    }
     if (!fs.existsSync(widgetTemplate)) {
       console.log(symbols.error, chalk.red(`Widget模板文件夹不存在`));
       return false;
@@ -409,7 +418,7 @@ function createWidget(id, name, description, author, path) {
     const manifest = JSON.parse(manifestJson);
 
     manifest.id = id;
-    manifest.tag = "Test";
+    manifest.tag = tag;
     manifest.name = name;
     manifest.description = description;
     manifest.author = author;
@@ -425,13 +434,14 @@ function createWidget(id, name, description, author, path) {
     for (let widget of widgets.widgets) {
       widget.enable = false;
     }
-    widgets.widgets.push({ group: "测试", path: rootPath, enable: true });
+    widgets.widgets.push({ group: "测试", path: parentPath, enable: true });
     widgetsJson = JSON.stringify(widgets, null, 2);
     fs.writeFileSync(widgetsPath, widgetsJson);
 
     console.log(symbols.info, chalk.white(`完成创建Widget:${id}...`));
   } catch (error) {
     console.log(symbols.error, chalk.red(error));
+    return false;
   }
 
   return true;
