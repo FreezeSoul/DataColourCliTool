@@ -376,10 +376,13 @@ program
 program
   .command("publishAll")
   .description("发布所有Widgets")
-  .action(async () => {
+  .action(() => {
     try {
       const widgetObjs = getWidgetsList();
-      for (let widgetObj of widgetObjs) {
+
+      const publishOne = function () {
+        const widgetObj = widgetObjs.shift();
+        if (!widgetObj) return;
         const widgetId = widgetObj.value;
         const widgetPath = getWidgetPath(widgetId);
         const widgetSrcPath = `src/widgets/${widgetPath}`;
@@ -433,11 +436,16 @@ program
                 reject(err);
               });
           });
-          await Promise.all([srcPromise, distPromise]).then(() => {});
+          Promise.all([srcPromise, distPromise]).then(() => {
+            console.log(symbols.info, chalk.white(`Widget已发布：${widgetId}`));
+            publishOne();
+          });
         } else {
           console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
         }
-      }
+      };
+
+      publishOne();
     } catch (error) {
       console.log(symbols.error, chalk.red(error));
     }
