@@ -376,7 +376,7 @@ program
 program
   .command("publishAll")
   .description("发布所有Widgets")
-  .action(() => {
+  .action(async () => {
     try {
       const widgetObjs = getWidgetsList();
       for (let widgetObj of widgetObjs) {
@@ -410,10 +410,30 @@ program
 
           fs.writeFileSync(`${widgetSrcPath}/__path__.txt`, widgetPath);
           fs.writeFileSync(`${widgetDistPath}/__path__.txt`, widgetPath);
+          var srcPromise = new Promise((resolve, reject) => {
+            tar
+              .pack(widgetSrcPath)
+              .pipe(fs.createWriteStream(widgetSrcTarPath))
+              .on("finish", () => {
+                resolve(true);
+              })
+              .on("error", (err) => {
+                reject(err);
+              });
+          });
 
-          tar.pack(widgetSrcPath).pipe(fs.createWriteStream(widgetSrcTarPath));
-          tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
-
+          var distPromise = new Promise((resolve, reject) => {
+            tar
+              .pack(widgetDistPath)
+              .pipe(fs.createWriteStream(widgetDistTarPath))
+              .on("finish", () => {
+                resolve(true);
+              })
+              .on("error", (err) => {
+                reject(err);
+              });
+          });
+          await Promise.all([srcPromise, distPromise]).then(() => {});
         } else {
           console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
         }
