@@ -373,6 +373,56 @@ program
       });
   });
 
+program
+  .command("publishAll")
+  .description("发布所有Widgets")
+  .action(() => {
+    try {
+      const widgetObjs = getWidgetsList();
+      for (let widgetObj of widgetObjs) {
+        const widgetId = widgetObj.id;
+        const widgetPath = getWidgetPath(widgetId);
+        const widgetSrcPath = `src/widgets/${widgetPath}`;
+        const widgetDistPath = `dist/widgets/${widgetPath}`;
+        const widgetManifestPath = `${widgetSrcPath}/manifest.json`;
+        const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
+        const widgetTicket = `${widgetId}.${timeId}`;
+        const widgetSrcTarName = `${widgetTicket}.src.tar`;
+        const widgetDistTarName = `${widgetTicket}.dist.tar`;
+        const widgetSrcTarPath = `publish/${widgetSrcTarName}`;
+        const widgetDistTarPath = `publish/${widgetDistTarName}`;
+
+        if (!fs.existsSync("publish")) {
+          fs.mkdirSync("publish");
+        }
+
+        if (fs.existsSync(widgetManifestPath)) {
+          let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+          const manifest = JSON.parse(manifestJson);
+          manifest.version = getNextVersion(manifest.version);
+          manifestJson = JSON.stringify(manifest, null, 2);
+          fs.writeFileSync(widgetManifestPath, manifestJson);
+          console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
+
+          child_process.execSync(`npm run build-widget:pro -- --path=${widgetPath}`, {
+            stdio: "inherit",
+          });
+
+          fs.writeFileSync(`${widgetSrcPath}/__path__.txt`, widgetPath);
+          fs.writeFileSync(`${widgetDistPath}/__path__.txt`, widgetPath);
+
+          tar.pack(widgetSrcPath).pipe(fs.createWriteStream(widgetSrcTarPath));
+          tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
+
+        } else {
+          console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
+        }
+      }
+    } catch (error) {
+      console.log(symbols.error, chalk.red(error));
+    }
+  });
+
 program.parse(process.argv);
 
 /**
