@@ -380,7 +380,7 @@ program
     try {
       const widgetObjs = getWidgetsList();
       for (let widgetObj of widgetObjs) {
-        const widgetId = widgetObj.id;
+        const widgetId = widgetObj.value;
         const widgetPath = getWidgetPath(widgetId);
         const widgetSrcPath = `src/widgets/${widgetPath}`;
         const widgetDistPath = `dist/widgets/${widgetPath}`;
