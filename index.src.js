@@ -26,7 +26,7 @@ const ftpServerAddress = "ftp.datacolour.cn";
 const ftpServerUserName = "datacolour";
 const ftpServerPassword = "datacolour";
 
-const proxyServerPort = 9999;
+const proxyServerPort = 8080;
 
 try {
   const packagePath = path.resolve(__dirname, "package.json");
@@ -41,9 +41,7 @@ program
   .command("init <name>")
   .description("初始化Widget项目")
   .action((name) => {
-    //创建项目目录
     if (!fs.existsSync(name)) {
-      //首次需要创建一个widget
       console.log(symbols.info, chalk.white(`初始化Widget项目`));
 
       const spinner = ora("正在下载Widget模板...");
@@ -65,7 +63,6 @@ program
         }
       });
     } else {
-      // 错误提示项目已存在，避免覆盖原有项目
       console.log(symbols.error, chalk.red(`项目${name}已存在`));
     }
   });
@@ -298,10 +295,6 @@ program
           type: "rawlist",
           choices: getWidgetsList(),
         },
-        {
-          name: "ftp",
-          message: "请确认是否备份至公共插件中心，请输入y/n(默认n)",
-        },
       ])
       .then((answers) => {
         try {
@@ -338,32 +331,6 @@ program
 
             tar.pack(widgetSrcPath).pipe(fs.createWriteStream(widgetSrcTarPath));
             tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
-
-            const ftpStatus = answers.ftp;
-            if (ftpStatus === "y") {
-              connectFtpServer(function (ftp) {
-                const spinner = ora("部件代码提交中...");
-                spinner.start();
-                const uploadfile = fs.createReadStream(widgetSrcTarPath);
-                const fileSize = fs.statSync(widgetSrcTarPath).size;
-                ftp.put(uploadfile, widgetSrcTarName, function (err) {
-                  if (err) {
-                    spinner.fail();
-                    console.log(symbols.error, chalk.red(err));
-                    throw err;
-                  }
-                  ftp.end();
-                  spinner.succeed("部件代码提交中...");
-                  console.log(symbols.success, chalk.white(`部件已成功提交...`));
-                  console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}`));
-                });
-                let uploadedSize = 0;
-                uploadfile.on("data", function (buffer) {
-                  uploadedSize += buffer.length;
-                  spinner.text = "部件代码提交中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
-                });
-              });
-            }
           } else {
             console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
           }
@@ -449,6 +416,86 @@ program
     } catch (error) {
       console.log(symbols.error, chalk.red(error));
     }
+  });
+
+program
+  .command("publishFtp")
+  .description("发布Widget至官方")
+  .action(() => {
+    inquirer
+      .prompt([
+        {
+          name: "id",
+          message: "请选择要发布的Widget",
+          type: "rawlist",
+          choices: getWidgetsList(),
+        },
+      ])
+      .then((answers) => {
+        try {
+          const widgetId = answers.id;
+          const widgetPath = getWidgetPath(widgetId);
+          const widgetSrcPath = `src/widgets/${widgetPath}`;
+          const widgetDistPath = `dist/widgets/${widgetPath}`;
+          const widgetManifestPath = `${widgetSrcPath}/manifest.json`;
+          const timeId = new Date().toISOString().replace(/T/, "").replace(/\..+/, "").replace(/-/g, "").replace(/:/g, "");
+          const widgetTicket = `${widgetId}.${timeId}`;
+          const widgetSrcTarName = `${widgetTicket}.src.tar`;
+          const widgetDistTarName = `${widgetTicket}.dist.tar`;
+          const widgetSrcTarPath = `publish/${widgetSrcTarName}`;
+          const widgetDistTarPath = `publish/${widgetDistTarName}`;
+
+          if (!fs.existsSync("publish")) {
+            fs.mkdirSync("publish");
+          }
+
+          if (fs.existsSync(widgetManifestPath)) {
+            let manifestJson = fs.readFileSync(widgetManifestPath).toString();
+            const manifest = JSON.parse(manifestJson);
+            manifest.version = getNextVersion(manifest.version);
+            manifestJson = JSON.stringify(manifest, null, 2);
+            fs.writeFileSync(widgetManifestPath, manifestJson);
+            console.log(symbols.info, chalk.white(`当前Widget版本号：${manifest.version}`));
+
+            child_process.execSync(`npm run build-widget:pro -- --path=${widgetPath}`, {
+              stdio: "inherit",
+            });
+
+            fs.writeFileSync(`${widgetSrcPath}/__path__.txt`, widgetPath);
+            fs.writeFileSync(`${widgetDistPath}/__path__.txt`, widgetPath);
+
+            tar.pack(widgetSrcPath).pipe(fs.createWriteStream(widgetSrcTarPath));
+            tar.pack(widgetDistPath).pipe(fs.createWriteStream(widgetDistTarPath));
+
+            connectFtpServer(function (ftp) {
+              const spinner = ora("部件代码提交中...");
+              spinner.start();
+              const uploadfile = fs.createReadStream(widgetSrcTarPath);
+              const fileSize = fs.statSync(widgetSrcTarPath).size;
+              ftp.put(uploadfile, widgetSrcTarName, function (err) {
+                if (err) {
+                  spinner.fail();
+                  console.log(symbols.error, chalk.red(err));
+                  throw err;
+                }
+                ftp.end();
+                spinner.succeed("部件代码提交中...");
+                console.log(symbols.success, chalk.white(`部件已成功提交...`));
+                console.log(symbols.info, chalk.white(`请反馈发布序号:${widgetTicket}至:freezesoul@gmail.com`));
+              });
+              let uploadedSize = 0;
+              uploadfile.on("data", function (buffer) {
+                uploadedSize += buffer.length;
+                spinner.text = "部件代码提交中...\t" + (((uploadedSize / fileSize) * 100).toFixed(2) + "%");
+              });
+            });
+          } else {
+            console.log(symbols.error, chalk.red(`Widget:${widgetId}不存在`));
+          }
+        } catch (error) {
+          console.log(symbols.error, chalk.red(error));
+        }
+      });
   });
 
 program.parse(process.argv);
